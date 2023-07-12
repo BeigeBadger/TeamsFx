@@ -615,11 +615,12 @@ export async function createNewProject(
       break;
     }
     case "spfxreact": {
-      await input.selectQuickPick(CreateProjectQuestion.Tab);
-      await input.selectQuickPick("SPFx");
       scaffoldingTime = 7 * 60 * 1000;
-      // Choose Tab(SPFx)
-      await input.selectQuickPick("SPFx tab");
+      await input.selectQuickPick(CreateProjectQuestion.Tab);
+      await driver.sleep(Timeout.input);
+      await input.selectQuickPick("SPFx");
+      await driver.sleep(Timeout.input);
+      await input.selectQuickPick(CreateProjectQuestion.CreateNewSpfxSolution);
       // Wait for Node version check
       await driver.sleep(Timeout.longTimeWait);
       await input.selectQuickPick(
@@ -640,7 +641,10 @@ export async function createNewProject(
       scaffoldingTime = 7 * 60 * 1000;
       // Choose Tab(SPFx)
       await input.selectQuickPick(CreateProjectQuestion.Tab);
+      await driver.sleep(Timeout.input);
       await input.selectQuickPick("SPFx");
+      await driver.sleep(Timeout.input);
+      await input.selectQuickPick(CreateProjectQuestion.CreateNewSpfxSolution);
       // Wait for Node version check
       await driver.sleep(Timeout.longTimeWait);
       await input.selectQuickPick(
@@ -661,7 +665,10 @@ export async function createNewProject(
       scaffoldingTime = 5 * 60 * 1000;
       // Choose Tab(SPFx)
       await input.selectQuickPick(CreateProjectQuestion.Tab);
+      await driver.sleep(Timeout.input);
       await input.selectQuickPick("SPFx");
+      await driver.sleep(Timeout.input);
+      await input.selectQuickPick(CreateProjectQuestion.CreateNewSpfxSolution);
       // Wait for Node version check
       await driver.sleep(Timeout.longTimeWait);
       await input.selectQuickPick(
