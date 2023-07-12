@@ -323,6 +323,7 @@ export class CreateProjectQuestion {
   static readonly NewTeamsApp = "Start with a Teams capability";
   static readonly SpfxSharepointFrameworkInTtk = "Install the latest SPFx";
   static readonly NewAddinApp = "Start with an Outlook add-in";
+  static readonly CreateNewSpfxSolution = "Create a New SPFx Solution";
 }
 
 export class ValidationContent {
