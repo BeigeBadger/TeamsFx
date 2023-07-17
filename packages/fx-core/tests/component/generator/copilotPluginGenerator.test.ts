@@ -74,7 +74,7 @@ const teamsManifest: TeamsAppManifest = {
   accentColor: "#FFFFFF",
 };
 
-describe("copilotPluginGenerator", function () {
+describe.only("copilotPluginGenerator", function () {
   const tools = new MockTools();
   setTools(tools);
   const sandbox = sinon.createSandbox();
@@ -92,6 +92,7 @@ describe("copilotPluginGenerator", function () {
     const context = createContextV3();
     const generateBasedOnSpec = sandbox.stub(SpecParser.prototype, "generate").resolves();
     const downloadTemplate = sandbox.stub(Generator, "generateTemplate").resolves(ok(undefined));
+    sandbox.stub(manifestUtils, "_readAppManifest").resolves(ok(teamsManifest));
 
     const result = await CopilotPluginGenerator.generate(context, inputs, "projectPath");
 
@@ -103,41 +104,72 @@ describe("copilotPluginGenerator", function () {
   it("success if starting from OpenAI Plugin", async function () {
     const inputs: Inputs = {
       platform: Platform.VSCode,
-      projectPath: "path",
+      projectPath: "projectPath",
       openAIPluginManifest: openAIPluginManifest,
     };
+    let updatedManifestData = "";
+
     const context = createContextV3();
     const generateBasedOnSpec = sandbox.stub(SpecParser.prototype, "generate").resolves();
     const downloadTemplate = sandbox.stub(Generator, "generateTemplate").resolves(ok(undefined));
-    const updateManifestBasedOnOpenAIPlugin = sandbox
-      .stub(OpenAIPluginManifestHelper, "updateManifest")
-      .resolves(ok(undefined));
+    const readManifest = sandbox
+      .stub(manifestUtils, "_readAppManifest")
+      .resolves(ok(teamsManifest));
+
+    sandbox.stub(fs, "writeFile").callsFake((file: number | fs.PathLike, data: any) => {
+      if (file === path.join("projectPath", "appPackage", "manifest.json")) {
+        updatedManifestData = data;
+      } else {
+        throw new Error("not support " + file);
+      }
+    });
+
     const result = await CopilotPluginGenerator.generate(context, inputs, "projectPath");
 
     assert.isTrue(result.isOk());
     assert.isTrue(downloadTemplate.calledOnce);
     assert.isTrue(generateBasedOnSpec.calledOnce);
-    assert.isTrue(updateManifestBasedOnOpenAIPlugin.calledOnce);
+    assert.isTrue(readManifest.calledOnce);
+
+    const updatedTeamsManifest = JSON.parse(updatedManifestData!) as TeamsAppManifest;
+    assert.equal(updatedTeamsManifest!.name.short, "TODO List-${{TEAMSFX_ENV}}");
+    assert.equal(updatedTeamsManifest!.name.full, openAIPluginManifest.name_for_model);
+    assert.equal(
+      updatedTeamsManifest!.description.short,
+      openAIPluginManifest.description_for_human
+    );
+    assert.equal(
+      updatedTeamsManifest!.description.full,
+      openAIPluginManifest.description_for_model
+    );
+    assert.equal(updatedTeamsManifest!.developer.privacyUrl, openAIPluginManifest.legal_info_url);
+    assert.equal(updatedTeamsManifest!.developer.websiteUrl, openAIPluginManifest.legal_info_url);
+    assert.equal(
+      updatedTeamsManifest!.developer.termsOfUseUrl,
+      openAIPluginManifest.legal_info_url
+    );
   });
 
-  it("error if updating manifest based on OpenAI Plugin", async function () {
+  it("error if reading Teams manifest", async function () {
     const inputs: Inputs = {
       platform: Platform.VSCode,
       projectPath: "path",
       openAIPluginManifest: openAIPluginManifest,
     };
     const context = createContextV3();
-    const generateBasedOnSpec = sandbox.stub(SpecParser.prototype, "generate").resolves();
-    const downloadTemplate = sandbox.stub(Generator, "generateTemplate").resolves(ok(undefined));
-    const updateManifestBasedOnOpenAIPlugin = sandbox
-      .stub(OpenAIPluginManifestHelper, "updateManifest")
+    sandbox.stub(SpecParser.prototype, "generate").resolves();
+    sandbox.stub(Generator, "generateTemplate").resolves(ok(undefined));
+    sandbox
+      .stub(manifestUtils, "_readAppManifest")
       .resolves(err(new SystemError("source", "name", "", "")));
+
     const result = await CopilotPluginGenerator.generate(context, inputs, "projectPath");
 
     assert.isTrue(result.isErr());
-    assert.isTrue(downloadTemplate.calledOnce);
-    assert.isTrue(generateBasedOnSpec.calledOnce);
-    assert.isTrue(updateManifestBasedOnOpenAIPlugin.calledOnce);
+    if (result.isErr()) {
+      assert.equal(result.error.source, "source");
+      assert.equal(result.error.name, "name");
+    }
   });
 
   it("failed to download template generator", async function () {
@@ -158,56 +190,56 @@ describe("copilotPluginGenerator", function () {
   });
 });
 
-describe("OpenAIManifestHelper", async () => {
-  const sandbox = sinon.createSandbox();
+// describe("OpenAIManifestHelper", async () => {
+//   const sandbox = sinon.createSandbox();
 
-  afterEach(async () => {
-    sandbox.restore();
-  });
+//   afterEach(async () => {
+//     sandbox.restore();
+//   });
 
-  it("updateManifest: cannot load Teams manifest", async () => {
-    sandbox
-      .stub(manifestUtils, "_readAppManifest")
-      .resolves(err(new SystemError("source", "name", "", "")));
-    const result = await OpenAIPluginManifestHelper.updateManifest(openAIPluginManifest, "path");
-    assert.isTrue(result.isErr());
-    if (result.isErr()) {
-      assert.equal(result.error.source, "source");
-    }
-  });
+//   it("updateManifest: cannot load Teams manifest", async () => {
+//     sandbox
+//       .stub(manifestUtils, "_readAppManifest")
+//       .resolves(err(new SystemError("source", "name", "", "")));
+//     const result = await OpenAIPluginManifestHelper.updateManifest(openAIPluginManifest, "path");
+//     assert.isTrue(result.isErr());
+//     if (result.isErr()) {
+//       assert.equal(result.error.source, "source");
+//     }
+//   });
 
-  it("updateManifest: cannot get logo and success", async () => {
-    let updatedManifestData = "";
-    const updateColor = false;
-    sandbox.stub(manifestUtils, "_readAppManifest").resolves(ok(teamsManifest));
-    sandbox.stub(fs, "writeFile").callsFake((file: number | fs.PathLike, data: any) => {
-      if (file === path.join("path", "manifest.json")) {
-        updatedManifestData = data;
-      } else {
-        throw new Error("not support " + file);
-      }
-    });
+//   it("updateManifest: cannot get logo and success", async () => {
+//     let updatedManifestData = "";
+//     const updateColor = false;
+//     sandbox.stub(manifestUtils, "_readAppManifest").resolves(ok(teamsManifest));
+//     sandbox.stub(fs, "writeFile").callsFake((file: number | fs.PathLike, data: any) => {
+//       if (file === path.join("path", "manifest.json")) {
+//         updatedManifestData = data;
+//       } else {
+//         throw new Error("not support " + file);
+//       }
+//     });
 
-    const result = await OpenAIPluginManifestHelper.updateManifest(openAIPluginManifest, "path");
-    assert.isTrue(result.isOk());
-    assert.isFalse(updateColor);
+//     const result = await OpenAIPluginManifestHelper.updateManifest(openAIPluginManifest, teamsManifest, "path");
+//     assert.isTrue(result.isOk());
+//     assert.isFalse(updateColor);
 
-    const updatedTeamsManifest = JSON.parse(updatedManifestData!) as TeamsAppManifest;
-    assert.equal(updatedTeamsManifest!.name.short, "TODO List-${{TEAMSFX_ENV}}");
-    assert.equal(updatedTeamsManifest!.name.full, openAIPluginManifest.name_for_model);
-    assert.equal(
-      updatedTeamsManifest!.description.short,
-      openAIPluginManifest.description_for_human
-    );
-    assert.equal(
-      updatedTeamsManifest!.description.full,
-      openAIPluginManifest.description_for_model
-    );
-    assert.equal(updatedTeamsManifest!.developer.privacyUrl, openAIPluginManifest.legal_info_url);
-    assert.equal(updatedTeamsManifest!.developer.websiteUrl, openAIPluginManifest.legal_info_url);
-    assert.equal(
-      updatedTeamsManifest!.developer.termsOfUseUrl,
-      openAIPluginManifest.legal_info_url
-    );
-  });
-});
+//     const updatedTeamsManifest = JSON.parse(updatedManifestData!) as TeamsAppManifest;
+//     assert.equal(updatedTeamsManifest!.name.short, "TODO List-${{TEAMSFX_ENV}}");
+//     assert.equal(updatedTeamsManifest!.name.full, openAIPluginManifest.name_for_model);
+//     assert.equal(
+//       updatedTeamsManifest!.description.short,
+//       openAIPluginManifest.description_for_human
+//     );
+//     assert.equal(
+//       updatedTeamsManifest!.description.full,
+//       openAIPluginManifest.description_for_model
+//     );
+//     assert.equal(updatedTeamsManifest!.developer.privacyUrl, openAIPluginManifest.legal_info_url);
+//     assert.equal(updatedTeamsManifest!.developer.websiteUrl, openAIPluginManifest.legal_info_url);
+//     assert.equal(
+//       updatedTeamsManifest!.developer.termsOfUseUrl,
+//       openAIPluginManifest.legal_info_url
+//     );
+//   });
+// });

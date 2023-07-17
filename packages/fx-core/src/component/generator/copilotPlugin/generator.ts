@@ -14,6 +14,7 @@ import { TelemetryEvents } from "../spfx/utils/telemetryEvents";
 import { SpecParser } from "../../../common/spec-parser/specParser";
 import { QuestionNames } from "../../../question/questionNames";
 import { OpenAIPluginManifestHelper } from "./helper";
+import { manifestUtils } from "../../driver/teamsApp/utils/ManifestUtils";
 
 const componentName = "copilot-plugin-existing-api";
 const templateName = "copilot-plugin-existing-api";
@@ -54,11 +55,18 @@ export class CopilotPluginGenerator {
     const openapiSpecPath = path.join(destinationPath, apiSpecFolderName, apiSpecFileName);
     await specParser.generate(manifestPath, filters, openapiSpecPath, adaptiveFolderName);
 
+    const manifestRes = await manifestUtils._readAppManifest(manifestPath);
+
+    if (manifestRes.isErr()) {
+      return err(manifestRes.error);
+    }
+
     // update manifest based on openAI plugin manifest
     if (inputs.openAIPluginManifest) {
       const updateManifestRes = await OpenAIPluginManifestHelper.updateManifest(
         inputs.openAIPluginManifest,
-        path.join(destinationPath, appPackageName)
+        manifestRes.value,
+        manifestPath
       );
       if (updateManifestRes.isErr()) return err(updateManifestRes.error);
     }
