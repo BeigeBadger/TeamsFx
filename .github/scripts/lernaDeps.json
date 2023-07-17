@@ -27,6 +27,14 @@
     "packages/sdk",
     "packages/sdk-react"
   ],
+  "tests": [
+    "packages/manifest",
+    "packages/api",
+    "packages/fx-core",
+    "packages/cli",
+    "packages/tests",
+    "templates"
+  ],
   "template": ["templates"],
   "extra-shot-mocha": ["packages/extra-shot-mocha"],
   "eslint-plugin-teamsfx": ["packages/eslint-plugin-teamsfx"]
